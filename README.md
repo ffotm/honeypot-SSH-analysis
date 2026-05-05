@@ -8,7 +8,7 @@ A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) wi
 
 | Layer | Tech |
 |---|---|
-| Honeypot | Cowrie 2.9.x |
+| Honeypot | Cowrie 2.9 |
 | Host | Arch Linux → Ubuntu VM |
 | Dashboard | Next.js 14, Tailwind CSS |
 | CLI Tool | Python 3 |
