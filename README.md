@@ -8,7 +8,7 @@ A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) wi
 
 | Layer | Tech |
 |---|---|
-| Honeypot | Cowrie 2.9 |
+| Honeypot | Cowrie 2.9.x |
 | Host | Arch Linux → Ubuntu VM |
 | Dashboard | Next.js 14, Tailwind CSS |
 | CLI Tool | Python 3 |
@@ -169,6 +169,67 @@ python3 cli/cowrie_dashboard.py --live
 
 # With AbuseIPDB threat scoring (free key at abuseipdb.com)
 python3 cli/cowrie_dashboard.py --abuse-key YOUR_KEY
+```
+
+---
+
+## Verifying Traffic with tcpdump
+
+Run on the **honeypot machine** to confirm traffic is hitting the right port:
+
+```bash
+# Watch for incoming connections on Cowrie port
+sudo tcpdump -i any -n port 2222
+
+# Confirm nothing is leaking to real SSH port 22
+sudo tcpdump -i any -n port 22
+
+# Watch both at once
+sudo tcpdump -i any -n "port 2222 or port 22222"
+```
+
+If you see SYN packets on 2222 — traffic is reaching Cowrie. If port 22 shows traffic, something is misconfigured.
+
+---
+
+## Attack Simulation (from Kali)
+
+Use `test.sh` to run a full simulated attack:
+
+```bash
+chmod +x test.sh
+TARGET=192.168.x.x ./test.sh
+```
+
+Or run manually:
+
+**Install SecLists if not already:**
+```bash
+sudo apt-get install seclists
+# or
+git clone https://github.com/danielmiessler/SecLists /usr/share/seclists
+```
+
+**Hydra brute force:**
+```bash
+hydra -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt \
+      -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt \
+      -s 2222 -t 4 -f \
+      ssh://192.168.x.x
+```
+
+**Manual SSH session** (simulates attacker after login):
+```bash
+ssh -p 2222 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    root@192.168.x.x
+```
+
+Then check the logs on the honeypot to see everything captured:
+```bash
+grep "login attempt" ~/cowrie/var/log/cowrie/cowrie.log
+grep "CMD" ~/cowrie/var/log/cowrie/cowrie.log
 ```
 
 ---
