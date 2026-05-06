@@ -1,6 +1,6 @@
 # SSH Honeypot — Threat Intelligence Platform
 
-A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) with a custom threat intelligence dashboard. The honeypot runs on an Ubuntu VM, accepts SSH connections on port 2222, and logs everything — every credential attempted, every command run, every session. A Kali Linux machine on the same network was used to simulate real attacks using Hydra brute forcing with SecLists wordlists and manual SSH sessions. All captured data is analyzed through a Next.js dashboard and a Python CLI tool that enrich attacker IPs with geolocation and threat intelligence.
+A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) with a custom threat intelligence dashboard. The honeypot runs on an Ubuntu VM, accepts SSH connections on port 2222, and logs every credential, command, session attempted. A Kali Linux machine was used to simulate real attacks using Hydra brute forcing. All captured data is analyzed through a Next.js dashboard and a Python CLI tool that enrich attacker IPs with geolocation and threat intelligence.
 
 ---
 
