@@ -1,6 +1,22 @@
 # SSH Honeypot — Threat Intelligence Platform
 
-A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) with a custom threat intelligence dashboard. Captures real attack data — credentials attempted, commands run, attacker geolocation.
+A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) with a custom threat intelligence dashboard. The honeypot runs on an Ubuntu VM, accepts SSH connections on port 2222, and logs everything — every credential attempted, every command run, every session. A Kali Linux machine on the same network was used to simulate real attacks using Hydra brute forcing with SecLists wordlists and manual SSH sessions. All captured data is analyzed through a Next.js dashboard and a Python CLI tool that enrich attacker IPs with geolocation and threat intelligence.
+
+---
+
+## Quick Start
+
+Skip the manual setup entirely — two scripts handle everything:
+
+```bash
+# On Ubuntu (honeypot machine)
+chmod +x deploy.sh
+./deploy.sh
+
+# On Kali (attacker machine)
+chmod +x test.sh
+TARGET=192.168.x.x ./test.sh
+```
 
 ---
 
@@ -8,15 +24,18 @@ A production SSH honeypot built on [Cowrie](https://github.com/cowrie/cowrie) wi
 
 | Layer | Tech |
 |---|---|
-| Honeypot | Cowrie 2.9.x |
-| Host | Arch Linux → Ubuntu VM |
+| Host | Arch Linux |
+| Honeypot OS | Ubuntu 22.04 (VM) |
+| Honeypot | Cowrie 2.9.x (asyncssh + Twisted) |
+| Attacker OS | Kali Linux |
+| Attack Tools | Hydra, SecLists, OpenSSH client |
 | Dashboard | Next.js 14, Tailwind CSS |
 | CLI Tool | Python 3 |
 | IP Intel | ip-api.com, AbuseIPDB (optional) |
 
 ---
 
-## Setup
+## Setup — Honeypot (Ubuntu VM)
 
 ### 1 — System Dependencies
 
@@ -140,6 +159,83 @@ Then on your **router**, forward external port 2222 to your host machine's local
 
 ---
 
+## Setup — Attacker Machine (Kali)
+
+### 1 — Install Hydra
+
+Hydra comes pre-installed on Kali. If missing:
+
+```bash
+sudo apt-get install hydra
+```
+
+### 2 — Get SecLists
+
+```bash
+sudo apt-get install seclists
+# or
+git clone https://github.com/danielmiessler/SecLists /usr/share/seclists
+```
+
+---
+
+## Verifying Traffic with tcpdump
+
+Run on the **honeypot machine** to confirm traffic is hitting the right port:
+
+```bash
+# Watch for incoming connections on Cowrie port
+sudo tcpdump -i any -n port 2222
+
+# Confirm nothing is leaking to real SSH port 22
+sudo tcpdump -i any -n port 22
+
+# Watch both at once
+sudo tcpdump -i any -n "port 2222 or port 22222"
+```
+
+If you see SYN packets on 2222 — traffic is reaching Cowrie. If port 22 shows traffic, something is misconfigured.
+
+---
+
+## Attack Simulation (from Kali)
+
+Use `test.sh` for a one-command full attack simulation:
+
+```bash
+chmod +x test.sh
+TARGET=192.168.x.x ./test.sh
+```
+
+Or run manually step by step:
+
+**Step 1 — Hydra brute force** cycles through SecLists credential pairs against the honeypot SSH port:
+
+```bash
+hydra -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt \
+      -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt \
+      -s 2222 -t 4 -f \
+      ssh://192.168.x.x
+```
+
+**Step 2 — Manual SSH session** simulates what an attacker does after getting in — exploring the filesystem, checking users, running recon commands:
+
+```bash
+ssh -p 2222 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    root@192.168.x.x
+```
+
+**Step 3 — Check what Cowrie captured:**
+
+```bash
+grep "login attempt" ~/cowrie/var/log/cowrie/cowrie.log
+grep "CMD" ~/cowrie/var/log/cowrie/cowrie.log
+```
+
+---
+
 ## Dashboard
 
 ```bash
@@ -169,67 +265,6 @@ python3 cli/cowrie_dashboard.py --live
 
 # With AbuseIPDB threat scoring (free key at abuseipdb.com)
 python3 cli/cowrie_dashboard.py --abuse-key YOUR_KEY
-```
-
----
-
-## Verifying Traffic with tcpdump
-
-Run on the **honeypot machine** to confirm traffic is hitting the right port:
-
-```bash
-# Watch for incoming connections on Cowrie port
-sudo tcpdump -i any -n port 2222
-
-# Confirm nothing is leaking to real SSH port 22
-sudo tcpdump -i any -n port 22
-
-# Watch both at once
-sudo tcpdump -i any -n "port 2222 or port 22222"
-```
-
-If you see SYN packets on 2222 — traffic is reaching Cowrie. If port 22 shows traffic, something is misconfigured.
-
----
-
-## Attack Simulation (from Kali)
-
-Use `test.sh` to run a full simulated attack:
-
-```bash
-chmod +x test.sh
-TARGET=192.168.x.x ./test.sh
-```
-
-Or run manually:
-
-**Install SecLists if not already:**
-```bash
-sudo apt-get install seclists
-# or
-git clone https://github.com/danielmiessler/SecLists /usr/share/seclists
-```
-
-**Hydra brute force:**
-```bash
-hydra -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt \
-      -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt \
-      -s 2222 -t 4 -f \
-      ssh://192.168.x.x
-```
-
-**Manual SSH session** (simulates attacker after login):
-```bash
-ssh -p 2222 \
-    -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    root@192.168.x.x
-```
-
-Then check the logs on the honeypot to see everything captured:
-```bash
-grep "login attempt" ~/cowrie/var/log/cowrie/cowrie.log
-grep "CMD" ~/cowrie/var/log/cowrie/cowrie.log
 ```
 
 ---
