@@ -258,13 +258,13 @@ COWRIE_JSON=/home/cowrie/cowrie/var/log/cowrie/cowrie.json
 
 ```bash
 # Full analysis
-python3 cli/cowrie_dashboard.py
+python3 cli/cowrie_cli.py
 
 # Live mode
-python3 cli/cowrie_dashboard.py --live
+python3 cli/cowrie_cli.py --live
 
 # With AbuseIPDB threat scoring (free key at abuseipdb.com)
-python3 cli/cowrie_dashboard.py --abuse-key 8985a55610004b60d7924af2e0f8c06b77863e9125493709dc5fce792f4a780a771783af0699bcc0
+python3 cli/cowrie_cli.py --abuse-key 8985a55610004b60d7924af2e0f8c06b77863e9125493709dc5fce792f4a780a771783af0699bcc0
 ```
 
 ---
