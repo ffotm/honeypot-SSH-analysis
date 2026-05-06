@@ -22,7 +22,7 @@ if ! command -v sudo &>/dev/null; then
 fi
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
-echo "[1/8] Installing dependencies..."
+echo "[1/9] Installing dependencies..."
 if ! sudo apt-get update -qq; then
     echo "Error ($?): apt-get update failed." >&2
     exit 1
@@ -35,7 +35,7 @@ if ! sudo apt-get install -y git python3-pip python3-venv libssl-dev libffi-dev 
 fi
 
 # ── Clone Cowrie ──────────────────────────────────────────────────────────────
-echo "[2/8] Setting up cowrie user and cloning..."
+echo "[2/9] Setting up cowrie user and cloning..."
 
 if id "cowrie" &>/dev/null; then
     echo "  User 'cowrie' already exists, skipping."
@@ -60,7 +60,7 @@ else
 fi
 
 # ── Virtual environment ───────────────────────────────────────────────────────
-echo "[3/8] Setting up virtual environment..."
+echo "[3/9] Setting up virtual environment..."
 
 if [[ -d "$COWRIE_DIR/cowrie-env" ]]; then
     echo "  Virtual environment already exists, skipping."
@@ -81,7 +81,7 @@ if ! sudo -u cowrie bash -c "
 fi
 
 # ── Move real SSH ─────────────────────────────────────────────────────────────
-echo "[4/8] Configuring real SSH port..."
+echo "[4/9] Configuring real SSH port..."
 
 CURRENT_PORT=$(grep -E "^Port " /etc/ssh/sshd_config | awk '{print $2}' || echo "22")
 
@@ -108,7 +108,7 @@ else
 fi
 
 # ── Configure Cowrie ──────────────────────────────────────────────────────────
-echo "[5/8] Writing cowrie.cfg..."
+echo "[5/9] Writing cowrie.cfg..."
 
 if [[ -f "$COWRIE_DIR/etc/cowrie.cfg" ]] && grep -q "listen_endpoints" "$COWRIE_DIR/etc/cowrie.cfg"; then
     echo "  cowrie.cfg already configured, skipping."
@@ -127,7 +127,7 @@ CONF
 fi
 
 # ── Fake filesystem ───────────────────────────────────────────────────────────
-echo "[6/8] Building fake filesystem..."
+echo "[6/9] Building fake filesystem..."
 
 sudo -u cowrie mkdir -p \
     "$COWRIE_DIR/myfs/etc" \
@@ -156,7 +156,7 @@ if ! grep -q "filesystem" "$COWRIE_DIR/etc/cowrie.cfg"; then
 fi
 
 # ── iptables ──────────────────────────────────────────────────────────────────
-echo "[7/8] Applying iptables rules..."
+echo "[7/9] Applying iptables rules..."
 
 COWRIE_UID=$(id -u cowrie)
 
@@ -171,7 +171,7 @@ else
 fi
 
 # ── Start Cowrie ──────────────────────────────────────────────────────────────
-echo "[8/8] Starting Cowrie..."
+echo "[8/9] Starting Cowrie..."
 
 if sudo -u cowrie bash -c "
     source $COWRIE_DIR/cowrie-env/bin/activate
@@ -198,8 +198,34 @@ else
     echo "  Cowrie confirmed listening on port $COWRIE_PORT."
 fi
 
+# ── tcpdump verification ──────────────────────────────────────────────────────
+echo "[9/9] Verifying traffic with tcpdump (10 second capture)..."
+
+if ! command -v tcpdump &>/dev/null; then
+    echo "  tcpdump not found, installing..."
+    if ! sudo apt-get install -y tcpdump -qq; then
+        echo "Error ($?): failed to install tcpdump." >&2
+        exit 1
+    fi
+fi
+
+echo "  Capturing on port $COWRIE_PORT for 10 seconds..."
+echo "  Send a test connection from another machine to see traffic appear here."
+echo ""
+
+sudo timeout 10 tcpdump -i any -n "port $COWRIE_PORT" 2>/dev/null || true
+
+echo ""
+echo "  If you saw SYN packets above, traffic is reaching Cowrie correctly."
+echo "  If nothing appeared, check your router port forwarding and firewall."
+
 echo ""
 echo "Done."
 echo "  Honeypot port : $COWRIE_PORT"
 echo "  Real SSH port : $REAL_SSH_PORT"
 echo "  Logs          : tail -f $COWRIE_DIR/var/log/cowrie/cowrie.log"
+echo ""
+echo "  To monitor traffic manually:"
+echo "    sudo tcpdump -i any -n port $COWRIE_PORT"
+echo "  To check for leaks on real SSH port:"
+echo "    sudo tcpdump -i any -n port 22"
